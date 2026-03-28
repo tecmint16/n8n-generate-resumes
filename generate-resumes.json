@@ -1,0 +1,493 @@
+{
+  "name": "generate-resumes",
+  "nodes": [
+    {
+      "parameters": {
+        "command": "=/bin/bash -c \"cd /home/crispian/tools/playwright_tools && node jobstreet-scraper.js '{{ $json.keyword }}' '{{ $json.location }}'\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        -288
+      ],
+      "id": "6dbe71d8-2025-46f1-96a8-32b5f2fbb71f",
+      "name": "Execute Command"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -704,
+        -288
+      ],
+      "id": "80fca994-422b-486c-9eb2-2b74b010c8e5",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"keyword\": \"IT Support\",\n  \"location\": \"Jakarta\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -464,
+        -288
+      ],
+      "id": "0edefe8c-174d-48fa-ac86-65d59151e46a",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mengambil string JSON dari output node sebelumnya\nconst rawStdout = $input.first().json.stdout;\n\ntry {\n  // Mengubah string menjadi array objek Javascript\n  const jobs = JSON.parse(rawStdout);\n\n  // Mengembalikan data dalam format yang dipahami n8n (list of items)\n  return jobs.map(job => {\n    return {\n      json: job\n    };\n  });\n\n} catch (error) {\n  // Jika terjadi error saat parsing\n  return [{\n    json: {\n      error: \"Gagal memproses data\",\n      raw: rawStdout\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        -288
+      ],
+      "id": "16931807-9138-44cb-b2e4-16d7bc821e2f",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=System Prompt / Pesan Instruksi AI:\n\"Kamu adalah seorang konsultan karir profesional dan asisten pembuat CV. Tugasmu adalah menyesuaikan CV milik saya agar relevan dengan kebutuhan perusahaan, lalu memperbarui dokumen CV saya secara langsung.\n\nData Lowongan Kerja (Job Description):\n{{ $json.description }}\n\nTugasmu:\n\n1. Analisis Job Description di atas dan temukan kata kunci utama.\n2. Buat Profile Summary yang menarik berdasarkan Job Description tersebut.\n3. Buat Daftar Skills yang relevan dengan Job Description tersebut.\n4. Gunakan Tools Google Docs(Template CV) sebagai referensi CV dasar saya.\n5. Gunakan Tools Google Drive untuk copy Template CV saya.\n6. Gunakan Tools Google Docs(Replace Text) untuk mengubah teks pada file yang sudah di copy:\n    - Ganti teks [UBAH_SUMMARY] di dokumen dengan Profile Summary yang kamu buat.\n    - Ganti teks [UBAH_SKILLS] di dokumen dengan daftar Skills yang kamu buat.\n\nOutput:\nBerikan ID Google Docs dari file yang sudah dibuat, dan jangan memberikan respon lain selain ID.\n\nPENTING:\n1. Jangan memberikan respon rencana atau langkah-langkah kerja kepada saya. Langsung eksekusi semua tool yang diperlukan secara berurutan. Berikan output akhir HANYA setelah semua proses modifikasi file dan pemanggilan tool selesai dilakukan. Kamu dilarang berhenti sebelum semua tugas sudah dikerjakan.\n2. Jangan pernah menampilkan sintaks JSON atau nama tool kepada pengguna. Jika Anda perlu menggunakan tool, langsung panggil tool tersebut secara internal.",
+        "options": {
+          "returnIntermediateSteps": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1056,
+        -272
+      ],
+      "id": "54b4fa55-ba4a-4606-a69c-b0d7fbec1982",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json['#debug'].url }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1152,
+        -16
+      ],
+      "id": "9d1c4f0d-255f-41e9-8dec-74dfffca6106",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/apify~web-scraper/runs?token=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&waitForFinish=60&memory=1024",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"startUrls\": [\n    {\n      \"url\": \"{{ $json.link }}\"\n    }\n  ],\n  \"pageFunction\": \"async function pageFunction(context) { return { title: document.querySelector('h1') ? document.querySelector('h1').innerText : 'No Title', description: document.body ? document.body.innerText : 'No Description' }; }\",\n  \"proxyConfiguration\": {\n    \"useApifyProxy\": true\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        496,
+        -272
+      ],
+      "id": "2da44e32-e07a-430c-89aa-943872e05c48",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        192,
+        -288
+      ],
+      "id": "13dedc88-6a50-4d1e-b1ea-261628b4d99d",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.apify.com/v2/datasets/{{ $json.data.defaultDatasetId }}/items?token=xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        784,
+        -272
+      ],
+      "id": "20434a59-911a-4450-8fee-552a534d761f",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "operation": "copy",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('File', ``, 'string') }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTool",
+      "typeVersion": 3,
+      "position": [
+        1632,
+        -32
+      ],
+      "id": "c8f91981-4565-4296-b464-f5995365d594",
+      "name": "Copy file in Google Drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "VErM2chzdUztNUT7",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        960,
+        -16
+      ],
+      "id": "0d465b66-0bce-4f02-afa3-35e45a713d4d",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "7YhdNfTdZrIZkq0K",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "1u5K8uiHZC9OP3PgjXVY7dvxT8rq1gaajqmT7haH-w-8",
+        "simple": false
+      },
+      "type": "n8n-nodes-base.googleDocsTool",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        -32
+      ],
+      "id": "bc0c38a7-3b6b-4691-97fe-fd98612251e4",
+      "name": "CV Template",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "qeSg5CiKHotlqgKI",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Doc_ID_or_URL', ``, 'string') }}",
+        "simple": false,
+        "actionsUi": {
+          "actionFields": [
+            {
+              "action": "replaceAll",
+              "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('actionFields0_Old_Text', ``, 'string') }}",
+              "replaceText": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('actionFields0_New_Text', ``, 'string') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDocsTool",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        -32
+      ],
+      "id": "2de8bda2-1a8b-41a4-aac6-2ef6f2eb6e1d",
+      "name": "Replace Text",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "qeSg5CiKHotlqgKI",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.output }}",
+          "mode": "id"
+        },
+        "newUpdatedFileName": "={{ $('Loop Over Items').item.json.company }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1408,
+        -272
+      ],
+      "id": "32a30931-9540-4aa1-b62d-7a5084bc5199",
+      "name": "Update file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "VErM2chzdUztNUT7",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {
+          "googleFileConversion": {
+            "conversion": {
+              "docsToFormat": "application/pdf"
+            }
+          },
+          "fileName": "=CV for {{ $json.name }}.pdf"
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1680,
+        -272
+      ],
+      "id": "2fad54ee-a8d8-4db1-b0f4-09f9edc33c4e",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "VErM2chzdUztNUT7",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1968,
+        -272
+      ],
+      "id": "c50bf5db-dcfa-48bd-87a7-ecc291398604",
+      "name": "Wait",
+      "webhookId": "27e3e5a0-0bc8-46bb-b262-cc278a69cd0c"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Update file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Copy file in Google Drive": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Command": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Execute Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CV Template": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Text": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update file": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "851d075a-f14c-4a8e-9ceb-b9ebb98e3a2c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dcd2d6211022b9e8f9844c6a5e9188678c475c53856f9ddb2d7735b501dc9cb8"
+  },
+  "id": "rU2qVByk3C4d6BEi",
+  "tags": []
+}
